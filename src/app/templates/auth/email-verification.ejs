@@ -1,0 +1,23 @@
+<%- include("../partials/header", {
+appName,
+pageTitle: "Verify Your Email"
+}) %>
+
+<tr>
+  <td style=" padding:40px; color:#374151; font-family:Arial,Helvetica,sans-serif; font-size:16px; line-height:1.7; " >
+    <h2 style=" margin:0 0 24px; color:#111827; font-size:24px; " > Hello <%= name %>, </h2>
+    <p style="margin:0 0 20px;"> Welcome to <strong><%= appName %></strong>! Please verify your email address to complete your account setup. </p>
+    <p style="margin:0 0 30px;"> Use the verification code below to verify your email address. This code will expire in <strong><%= expireTime %></strong>. </p>
+    <table role="presentation" cellpadding="0" cellspacing="0" border="0" align="center" style="margin:0 auto 32px;" >
+      <tr>
+        <td bgcolor="#f3f4f6" style=" border-radius:8px; padding:18px 32px; text-align:center; " > <span style=" color:#111827; font-size:32px; font-weight:bold; letter-spacing:8px; font-family:Arial,Helvetica,sans-serif; " > <%= otp %> </span> </td>
+      </tr>
+    </table>
+    <p style="margin:0 0 16px; text-align:center;"> Enter this code in the verification screen to continue. </p>
+    <hr style=" border:none; border-top:1px solid #e5e7eb; margin:32px 0; " >
+    <p style="margin:0 0 16px;"> If you didn't create an account with <strong><%= appName %></strong>, you can safely ignore this email. </p>
+    <p style="margin:0;"> For your security, never share this verification code with anyone. </p>
+  </td>
+</tr>
+
+<%- include("../partials/footer", { appName }) %>
