@@ -5,6 +5,8 @@ import { sendResponse } from "../../shared/sendResponse";
 import status from "http-status";
 import { tokenUtils } from "../../utils/token";
 import AppError from "../../errorHelpers/appError";
+import { auth } from "../../lib/auth";
+import { envVars } from "../../config/env";
 
 const registerPatient = catchAsync(async (req: Request, res: Response) => {
   const result = await authService.registerPatient(req.body);
@@ -151,6 +153,86 @@ const resetPassword = catchAsync(async (req: Request, res: Response) => {
   });
 });
 
+/*********************************
+ * Reset password
+ ********************************/
+const googleLogin = catchAsync(async (req: Request, res: Response) => {
+  const redirectPath =
+    typeof req.query.redirect === "string" ? req.query.redirect : "/dashboard";
+  const callbackURL = new URL(
+    "/api/v1/auth/google/success",
+    envVars.BETTER_AUTH_URL,
+  );
+  callbackURL.searchParams.set("redirect", redirectPath);
+
+  const response = await auth.api.signInSocial({
+    body: {
+      provider: "google",
+      callbackURL: callbackURL.toString(),
+    },
+    headers: new Headers({
+      "user-agent": req.headers["user-agent"] ?? "",
+      "x-forwarded-for":
+        req.headers["x-forwarded-for"]?.toString() ??
+        req.socket.remoteAddress ??
+        "",
+    }),
+    returnHeaders: true,
+  });
+
+  const location = response.headers.get("location");
+
+  if (!location) {
+    return res.status(500).json({
+      success: false,
+      message: "Google authorization URL was not generated",
+    });
+  }
+
+  const setCookie = response.headers.getSetCookie?.();
+  if (setCookie?.length) {
+    res.setHeader("set-cookie", setCookie);
+  }
+
+  return res.redirect(location);
+});
+
+/*********************************
+ * Reset password
+ ********************************/
+const googleLoginSuccess = catchAsync(async (req: Request, res: Response) => {
+  const redirectPath = req.query.redirect as string || "/dashboard";
+
+  const sessionToken = req.cookies["better-auth.session_token"];
+
+  if (!sessionToken) {
+    return res.redirect(`${envVars.FRONTEND_URL}/login?error=oauth_failed`);
+  }
+
+  const session = await auth.api.getSession({
+    headers: {
+      Cookie: `better-auth.session_token=${sessionToken}`,
+    },
+  });
+
+  if (!session) {
+    return res.redirect(`${envVars.FRONTEND_URL}/login?error=no_session_found`);
+  }
+
+  const result = await authService.googleLoginSuccess(session);
+
+  const { accessToken, refreshToken } = result;
+
+  tokenUtils.setAccessTokenCookie(res, accessToken);
+  tokenUtils.setRefreshTokenCookie(res, refreshToken);
+  // ?redirect=//profile -> /profile
+  const isValidRedirectPath =
+    redirectPath.startsWith("/") && !redirectPath.startsWith("//");
+  const finalRedirectPath = isValidRedirectPath ? redirectPath : "/dashboard";
+
+  res.redirect(`${envVars.FRONTEND_URL}${finalRedirectPath}`);
+});
+
 export const authController = {
   registerPatient,
   loginUser,
@@ -161,4 +243,6 @@ export const authController = {
   verifyEmailOtp,
   forgetPassword,
   resetPassword,
+  googleLogin,
+  googleLoginSuccess,
 };

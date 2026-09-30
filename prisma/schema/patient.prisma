@@ -15,6 +15,51 @@ model Patient {
   userId String @unique
   user   User   @relation(fields: [userId], references: [id], onDelete: Cascade, onUpdate: Cascade)
 
+  appointments      Appointment[]
+  medicalReports    MedicalReport[]
+  patientHealthData PatientHealthData?
+
   @@index([isDeleted], name: "idx_patient_isDeleted")
   @@map("patient")
+}
+
+model MedicalReport {
+  id         String   @id @default(uuid(7))
+  reportName String
+  reportLink String
+  createdAt  DateTime @default(now())
+  updatedAt  DateTime @updatedAt
+
+  patientId String
+  patient   Patient @relation(fields: [patientId], references: [id], onDelete: Cascade)
+
+  @@map("medical_reports")
+}
+
+model PatientHealthData {
+  id                  String        @id @default(uuid(7))
+  gender              Gender
+  dateOfBirth         DateTime
+  bloodGroup          BloodGroup
+  hasAllergies        Boolean       @default(false)
+  hasDiabetes         Boolean       @default(false)
+  heightCm            Decimal?
+  weightKg            Decimal?
+  smokingStatus       Boolean       @default(false)
+  dietaryPreferences  String?
+  pregnancyStatus     Boolean       @default(false)
+  mentalHealthHistory String?
+  immunizationStatus  String?
+  hasPastSurgeries    Boolean       @default(false)
+  recentAnxiety       Boolean       @default(false)
+  recentDepression    Boolean       @default(false)
+  maritalStatus       MaritalStatus
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  patientId String  @unique
+  patient   Patient @relation(fields: [patientId], references: [id], onDelete: Cascade)
+
+  @@map("patient_health_data")
 }

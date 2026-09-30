@@ -5,13 +5,15 @@ import { sendResponse } from "../../shared/sendResponse";
 import status from "http-status";
 
 const getAllDoctors = catchAsync(async (req: Request, res: Response) => {
-  const result = await doctorService.getAllDoctors();
+  
+  const result = await doctorService.getAllDoctors(req.query);
 
   sendResponse(res, {
-    statusCode: status.CREATED,
+    statusCode: status.OK,
     message: "All doctors retrieved successfully",
     success: true,
-    data: result,
+    data: result.data,
+    meta: result.meta
   });
 });
 

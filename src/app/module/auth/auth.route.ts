@@ -16,5 +16,8 @@ router.post("/verify-email", authController.verifyEmailOtp)
 router.post("/forget-password", authController.forgetPassword)
 router.post("/reset-password", authController.resetPassword)
 
+router.get("/login/google", authController.googleLogin)
+router.get("/google/success", authController.googleLoginSuccess)
+
 
 export const AuthRoutes = router

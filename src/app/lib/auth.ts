@@ -22,6 +22,12 @@ export const auth = betterAuth({
     sendOnSignIn: true,
     autoSignInAfterVerification: true,
   },
+  socialProviders: {
+    google: {
+      clientId: envVars.GOOGLE_CLIENT_ID,
+      clientSecret: envVars.GOOGLE_CLIENT_SECRET
+    }
+  },
   user: {
     additionalFields: {
       role: {
@@ -68,7 +74,7 @@ export const auth = betterAuth({
     cookies: {
       state: {
         attributes: {
-          sameSite: "none",
+          sameSite: "lax",
           secure: false,
           httpOnly: true,
           path: "/",
@@ -76,7 +82,7 @@ export const auth = betterAuth({
       },
       sessionToken: {
         attributes: {
-          sameSite: "none",
+          sameSite: "lax",
           secure: false,
           httpOnly: true,
           path: "/",

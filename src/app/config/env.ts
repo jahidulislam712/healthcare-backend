@@ -50,7 +50,11 @@ const envSchema = z.object({
 
   FRONTEND_URL: requiredString("FRONTEND_URL"),
 
+  GOOGLE_CLIENT_ID: requiredString("GOOGLE_CLIENT_ID"),
+  GOOGLE_CLIENT_SECRET: requiredString("GOOGLE_CLIENT_SECRET"),
 
+  STRIPE_SECRET_KEY: requiredString("STRIPE_SECRET_KEY"),
+  STRIPE_WEBHOOK_SECRET: requiredString("STRIPE_WEBHOOK_SECRET"),
 });
 
 /**********************************
@@ -100,6 +104,12 @@ const parseEnv = () => {
     SMTP_PASS: env.SMTP_PASS,
 
     FRONTEND_URL: env.FRONTEND_URL,
+
+    GOOGLE_CLIENT_ID: env.GOOGLE_CLIENT_ID,
+    GOOGLE_CLIENT_SECRET: env.GOOGLE_CLIENT_SECRET,
+
+    STRIPE_SECRET_KEY: env.STRIPE_SECRET_KEY,
+    STRIPE_WEBHOOK_SECRET: env.STRIPE_WEBHOOK_SECRET
     
   });
 };
