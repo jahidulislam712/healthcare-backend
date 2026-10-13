@@ -28,6 +28,8 @@ model Doctor {
   doctorSchedules DoctorSchedules[]
   specialties     DoctorSpecialty[]
   appointments    Appointment[]
+  reviews         Review[]
+  prescriptions   Prescription[]
 
   @@index([isDeleted], name: "idx_doctor_isDeleted")
   @@map("doctor")

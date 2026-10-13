@@ -106,7 +106,7 @@ export const auth = betterAuth({
           });
           
           if (user && !user.emailVerified) {
-            sendEmail({
+            await sendEmail({
               to: email,
               subject: "Email verification",
               templateName: "email-verification",
@@ -126,7 +126,7 @@ export const auth = betterAuth({
           });
           
           if (user) {
-            sendEmail({
+            await sendEmail({
               to: email,
               subject: "Reset Password OTP",
               templateName: "reset-password",

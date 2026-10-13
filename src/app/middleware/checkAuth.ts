@@ -45,7 +45,6 @@ export const checkAuth =
       if (sessionExists && sessionExists.user) {
         const user = sessionExists.user;
 
-
         if (user.isDeleted) {
           throw new AppError(
             status.UNAUTHORIZED,
@@ -97,6 +96,13 @@ export const checkAuth =
       }
 
       const userId = verifyToken.data?.sub as string;
+      if (userId !== sessionExists.user.id) {
+        throw new AppError(
+          status.UNAUTHORIZED,
+          "Unauthorized access! Session and access token do not match.",
+        );
+      }
+      
       const isUserExists = await prisma.user.findFirst({
         where: { id: userId },
       });
@@ -130,7 +136,7 @@ export const checkAuth =
         );
       }
 
-      next()
+      next();
     } catch (error) {
       next(error);
     }

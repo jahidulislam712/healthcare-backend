@@ -55,6 +55,13 @@ const envSchema = z.object({
 
   STRIPE_SECRET_KEY: requiredString("STRIPE_SECRET_KEY"),
   STRIPE_WEBHOOK_SECRET: requiredString("STRIPE_WEBHOOK_SECRET"),
+
+  PARSE_API_KEY: requiredString("PARSE_API_KEY"),
+
+  REDIS_USER: requiredString("REDIS_USER"),
+  REDIS_PASS: requiredString("REDIS_PASS"),
+  REDIS_HOST: requiredString("REDIS_HOST"),
+  REDIS_PORT: requiredString("REDIS_PORT"),
 });
 
 /**********************************
@@ -109,7 +116,14 @@ const parseEnv = () => {
     GOOGLE_CLIENT_SECRET: env.GOOGLE_CLIENT_SECRET,
 
     STRIPE_SECRET_KEY: env.STRIPE_SECRET_KEY,
-    STRIPE_WEBHOOK_SECRET: env.STRIPE_WEBHOOK_SECRET
+    STRIPE_WEBHOOK_SECRET: env.STRIPE_WEBHOOK_SECRET,
+
+    PARSE_API_KEY: env.PARSE_API_KEY,
+
+    REDIS_USER: env.REDIS_USER,
+    REDIS_PASS: env.REDIS_PASS,
+    REDIS_HOST: env.REDIS_HOST,
+    REDIS_PORT: env.REDIS_PORT,
     
   });
 };

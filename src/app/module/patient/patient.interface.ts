@@ -1,3 +1,4 @@
+import { Prisma } from "../../../generated/prisma/client";
 import {
   BloodGroup,
   Gender,
@@ -11,31 +12,36 @@ export interface IUpdatePatientInfoPayload {
   contactNumber?: string;
 }
 export interface IUpdatePatientHelthDataPayload {
-  gender: Gender;
-  dateOfBirth: Date;
-  bloodGroup: BloodGroup;
-  hasAllergies: boolean;
-  hasDiabetes: boolean;
-  height: string;
-  weight: string;
-  smokingStatus: boolean;
-  dietaryPreferences: string;
-  pregnancyStatus: boolean;
-  mentalHealthHistory: string;
-  immunizationStatus: string;
-  hasPastSurgeries: boolean;
-  recentAnxiety: boolean;
-  recentDepression: boolean;
-  maritalStatus: MaritalStatus;
+  gender?: Gender;
+  dateOfBirth?: string;
+  bloodGroup?: BloodGroup;
+  hasAllergies?: boolean;
+  hasDiabetes?: boolean;
+  heightCm?: Prisma.Decimal | number | string | null;
+  weightKg?: Prisma.Decimal | number | string | null;
+  smokingStatus?: boolean;
+  dietaryPreferences?: string;
+  pregnancyStatus?: boolean;
+  mentalHealthHistory?: string;
+  immunizationStatus?: string;
+  hasPastSurgeries?: boolean;
+  recentAnxiety?: boolean;
+  recentDepression?: boolean;
+  maritalStatus?: MaritalStatus;
 }
 export interface IUpdatePatientMedicalReportPayload {
-  reportName: string;
-  reportLink: string;
-  reportId: string;
-  shouldDelete: boolean;
+  reportName?: string;
+  reportLink?: string;
+  reportId?: string;
+  shouldDelete?: boolean;
 }
 export interface IUpdatePatientProfilePayload {
   patientInfo?: IUpdatePatientInfoPayload;
   patientHealthData?: IUpdatePatientHelthDataPayload;
-  medicalReports?: IUpdatePatientMedicalReportPayload;
+  medicalReports?: IUpdatePatientMedicalReportPayload[];
+}
+
+export interface IPatientFiles {
+  profilePhoto: Express.Multer.File[];
+  medicalReports: Express.Multer.File[];
 }

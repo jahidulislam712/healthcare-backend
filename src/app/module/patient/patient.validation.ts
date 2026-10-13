@@ -15,20 +15,21 @@ export const updatePatientProfileZodSchema = z.object({
     profilePhoto: z.string().optional(),
     contactNumber: z.string().optional(),
     address: z.string().optional(),
-  }).optional,
+  }).optional(),
 
   patientHealthData: z
     .object({
       gender: z.enum(Gender).optional(),
       dateOfBirth: z
         .string()
-        .refine((date) => !isNaN(Date.parse(date)))
-        .optional(),
+        .refine((date) => !isNaN(Date.parse(date)), {
+          message: "Invalid date"
+        }).optional(),
       bloodGroup: z.enum(BloodGroup).optional(),
       hasAllergies: z.boolean().optional(),
       hasDiabetes: z.boolean().optional(),
-      height: z.string().optional(),
-      weight: z.string().optional(),
+      heightCm: z.union([z.number(), z.string()]).optional().nullable(),
+      weightKg: z.union([z.number(), z.string()]).optional().nullable(),
       smokingStatus: z.boolean().optional(),
       dietaryPreferences: z.string().optional(),
       pregnancyStatus: z.boolean().optional(),
@@ -78,3 +79,4 @@ export const updatePatientProfileZodSchema = z.object({
       return true;
     }),
 });
+

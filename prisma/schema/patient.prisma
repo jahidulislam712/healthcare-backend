@@ -18,6 +18,8 @@ model Patient {
   appointments      Appointment[]
   medicalReports    MedicalReport[]
   patientHealthData PatientHealthData?
+  reviews           Review[]
+  prescriptions     Prescription[]
 
   @@index([isDeleted], name: "idx_patient_isDeleted")
   @@map("patient")
@@ -37,23 +39,23 @@ model MedicalReport {
 }
 
 model PatientHealthData {
-  id                  String        @id @default(uuid(7))
-  gender              Gender
-  dateOfBirth         DateTime
-  bloodGroup          BloodGroup
-  hasAllergies        Boolean       @default(false)
-  hasDiabetes         Boolean       @default(false)
-  heightCm            Decimal?
-  weightKg            Decimal?
-  smokingStatus       Boolean       @default(false)
+  id                  String         @id @default(uuid(7))
+  gender              Gender?
+  dateOfBirth         DateTime?
+  bloodGroup          BloodGroup?
+  hasAllergies        Boolean        @default(false)
+  hasDiabetes         Boolean        @default(false)
+  heightCm            Decimal?       @db.Decimal(5, 2) // e.g. 999.99 max
+  weightKg            Decimal?       @db.Decimal(5, 2) // e.g. 999.99 max
+  smokingStatus       Boolean        @default(false)
   dietaryPreferences  String?
-  pregnancyStatus     Boolean       @default(false)
+  pregnancyStatus     Boolean        @default(false)
   mentalHealthHistory String?
   immunizationStatus  String?
-  hasPastSurgeries    Boolean       @default(false)
-  recentAnxiety       Boolean       @default(false)
-  recentDepression    Boolean       @default(false)
-  maritalStatus       MaritalStatus
+  hasPastSurgeries    Boolean        @default(false)
+  recentAnxiety       Boolean        @default(false)
+  recentDepression    Boolean        @default(false)
+  maritalStatus       MaritalStatus?
 
   createdAt DateTime @default(now())
   updatedAt DateTime @updatedAt

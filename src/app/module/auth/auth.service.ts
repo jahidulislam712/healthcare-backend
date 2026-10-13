@@ -20,6 +20,14 @@ import { IRequestUser } from "../../interfaces/requestUser.interface";
 const registerPatient = async (payload: IRegiterPatientPayload) => {
   const { name, email, password } = payload;
 
+  const existingUser = await prisma.user.findUnique({
+    where: { email },
+  });
+
+  if (existingUser) {
+    throw new AppError(status.CONFLICT, `User already exists with this email.`);
+  }
+
   const data = await auth.api.signUpEmail({
     body: {
       name,
@@ -47,9 +55,11 @@ const registerPatient = async (payload: IRegiterPatientPayload) => {
     };
   } catch (error) {
     console.log("Transaction error: ", error);
+
     await prisma.user.delete({
       where: { id: data.user.id },
     });
+
     throw error;
   }
 };
@@ -60,6 +70,25 @@ const registerPatient = async (payload: IRegiterPatientPayload) => {
  */
 const loginUser = async (payload: ILoginUserPayload) => {
   const { email, password } = payload;
+
+  const isUser = await prisma.user.findUnique({
+    where: { email },
+    include: { accounts: true },
+  });
+  if (!isUser) {
+    throw new AppError(status.UNAUTHORIZED, "Invalid email or password");
+  }
+
+  // check oAuth provider
+  const hasPassword = isUser.accounts.find((acc) => acc.password !== null);
+
+  if (!hasPassword) {
+    const providerId = isUser.accounts[0].providerId || "a social provider";
+    throw new AppError(
+      status.UNAUTHORIZED,
+      `This account uses ${providerId} Sign-in. Please log in with ${providerId} or use Forgot Password to create one`,
+    );
+  }
 
   const data = await auth.api.signInEmail({
     body: {
@@ -248,23 +277,20 @@ const forgetPassword = async (email: string) => {
   const user = await prisma.user.findUnique({
     where: { email },
   });
-  if (!user) {
-    throw new AppError(status.NOT_FOUND, "User not found!");
-  }
-  if (!user.emailVerified) {
-    throw new AppError(status.BAD_REQUEST, "User is not verified!");
-  }
+  const canResetPassword =
+    user !== null &&
+    user.emailVerified &&
+    !user.isDeleted &&
+    user.status !== UserStatus.BLOCKED &&
+    user.status !== UserStatus.DELETED;
 
-  if (user.isDeleted || user.status === UserStatus.DELETED) {
-    throw new AppError(status.NOT_FOUND, "User not found");
-  }
+  if (!canResetPassword) return;
 
-  const result = await auth.api.requestPasswordResetEmailOTP({
+  await auth.api.requestPasswordResetEmailOTP({
     body: {
       email,
     },
   });
-  return result;
 };
 
 /*********************************
@@ -335,12 +361,12 @@ const googleLoginSuccess = async (session: Record<string, any>) => {
 
   const accessToken = tokenUtils.getAccessToken({
     sub: session.user.id,
-    role: session.user.role
+    role: session.user.role,
   });
 
   const refreshToken = tokenUtils.getRefreshToken({
     sub: session.user.id,
-    role: session.user.role
+    role: session.user.role,
   });
 
   return {

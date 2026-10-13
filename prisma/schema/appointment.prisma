@@ -18,6 +18,8 @@ model Appointment {
   schedule   Schedule @relation(fields: [scheduleId], references: [id], onDelete: Cascade)
 
   payment Payment?
+  review Review?
+  prescription Prescription?
 
   @@map("appointments")
 }

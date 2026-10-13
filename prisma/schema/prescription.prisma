@@ -1,0 +1,83 @@
+model Prescription {
+  id           String    @id @default(uuid(7))
+  followUpDate DateTime?
+  diagnosis    String?   @db.Text
+  instructions String    @db.Text
+  pdfUrl       String?
+  createdAt    DateTime  @default(now())
+  updatedAt    DateTime  @updatedAt
+
+  // Preserve prescription records when related accounts or appointments are removed.
+  patientId String
+  patient   Patient @relation(fields: [patientId], references: [id], onDelete: Restrict)
+
+  appointmentId String      @unique
+  appointment   Appointment @relation(fields: [appointmentId], references: [id], onDelete: Restrict)
+
+  doctorId String
+  doctor   Doctor @relation(fields: [doctorId], references: [id], onDelete: Restrict)
+
+  prescriptionMedicines PrescriptionMedicine[]
+
+  @@index([patientId, createdAt])
+  @@index([doctorId, createdAt])
+  @@map("prescriptions")
+}
+
+model Medicine {
+  id String @id @default(uuid(7))
+
+  // External identifiers are scoped to their source catalog.
+  catalogSource String?
+  externalId    String?
+
+  // Product information
+  brandName    String?
+  genericName  String
+  strength     String?
+  dosageForm   String?
+  manufacturer String?
+
+  // Classification
+  atcCode String?
+
+  // Application control
+  isActive Boolean @default(true)
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  prescriptionMedicines PrescriptionMedicine[]
+
+  @@unique([catalogSource, externalId])
+  @@index([brandName, isActive])
+  @@index([genericName, isActive])
+  @@map("medicines")
+}
+
+model PrescriptionMedicine {
+  id String @id @default(uuid(7))
+
+  prescriptionId String
+  prescription   Prescription @relation(fields: [prescriptionId], references: [id], onDelete: Cascade)
+
+  medicineId String
+  medicine   Medicine @relation(fields: [medicineId], references: [id], onDelete: Restrict)
+
+  dosage       String
+  frequency    String
+  duration     String
+  instructions String?
+
+  // Historical snapshot
+  medicineName String
+  strength     String?
+  dosageForm   String?
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  @@index([prescriptionId, createdAt])
+  @@index([medicineId, createdAt])
+  @@map("prescription_medicines")
+}
