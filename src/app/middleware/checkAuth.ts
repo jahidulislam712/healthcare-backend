@@ -4,137 +4,121 @@ import { cookieUtils } from "../utils/cookie";
 import AppError from "../errorHelpers/appError";
 import status from "http-status";
 import { prisma } from "../lib/prisma";
-import { jwtUtils } from "../utils/jwt";
-import { envVars } from "../config/env";
+import { AppTokenClaims, jwtUtils } from "../utils/jwt";
+import { SESSION_POLICY } from "../config/sessionPolicy";
 
 export const checkAuth =
   (...roles: Role[]): RequestHandler =>
   async (req: Request, res: Response, next: NextFunction) => {
     try {
-      // verify session token
-      const sessionToken = cookieUtils.getCookie(
-        req,
-        "better-auth.session_token",
-      );
-      if (!sessionToken) {
-        throw new AppError(
-          status.UNAUTHORIZED,
-          "Unauthorized access! No access token found.",
-        );
-      }
-
-      const sessionExists = await prisma.session.findFirst({
-        where: {
-          token: sessionToken,
-          expiresAt: {
-            gt: new Date(),
-          },
-        },
-        include: {
-          user: true,
-        },
-      });
-
-      if (!sessionExists) {
-        throw new AppError(
-          status.UNAUTHORIZED,
-          "Unauthorized access! No access token found.",
-        );
-      }
-
-      if (sessionExists && sessionExists.user) {
-        const user = sessionExists.user;
-
-        if (user.isDeleted) {
-          throw new AppError(
-            status.UNAUTHORIZED,
-            "Unauthorized access! User is deleted.",
-          );
-        }
-
-        if (
-          user.status === UserStatus.BLOCKED ||
-          user.status === UserStatus.DELETED
-        ) {
-          throw new AppError(
-            status.UNAUTHORIZED,
-            "Unauthorized access! User is not active.",
-          );
-        }
-
-        if (!roles.includes(user.role)) {
-          throw new AppError(
-            status.FORBIDDEN,
-            "Forbidden access! You do not have permission to access this resource.",
-          );
-        }
-
-        req.user = {
-          sub: user.id,
-          role: user.role,
-        };
-      }
-
-      // verify access token
       const accessToken = cookieUtils.getCookie(req, "accessToken");
       if (!accessToken) {
+        throw new AppError(status.UNAUTHORIZED, "Please login.");
+      }
+
+      const verified = jwtUtils.verifyAccessToken(accessToken);
+      if (!verified.success || typeof verified.data === "string") {
         throw new AppError(
           status.UNAUTHORIZED,
-          "Unauthorized access! No access token provided.",
+          "Invalid or expired access token.",
         );
       }
 
-      const verifyToken = jwtUtils.verifyToken(
-        accessToken,
-        envVars.JWT_ACCESS_SECRET,
-      );
-      if (!verifyToken.success) {
-        throw new AppError(
-          status.UNAUTHORIZED,
-          "Unauthorized access! Invalid access token.",
-        );
-      }
-
-      const userId = verifyToken.data?.sub as string;
-      if (userId !== sessionExists.user.id) {
-        throw new AppError(
-          status.UNAUTHORIZED,
-          "Unauthorized access! Session and access token do not match.",
-        );
-      }
-      
-      const isUserExists = await prisma.user.findFirst({
-        where: { id: userId },
-      });
-      if (!isUserExists) {
-        throw new AppError(
-          status.UNAUTHORIZED,
-          "Unauthorized access! User not found.",
-        );
-      }
-
-      if (isUserExists.isDeleted) {
-        throw new AppError(
-          status.UNAUTHORIZED,
-          "Unauthorized access! User is deleted.",
-        );
-      }
-
+      const claims = verified.data as AppTokenClaims;
       if (
-        isUserExists.status === UserStatus.BLOCKED ||
-        isUserExists.status === UserStatus.DELETED
+        claims.purpose !== "access" ||
+        typeof claims.sub !== "string" ||
+        typeof claims.sid !== "string"
+      ) {
+        throw new AppError(status.UNAUTHORIZED, "Invalid access token.");
+      }
+
+      const now = new Date();
+      const idleCutoff = new Date(now.getTime() - SESSION_POLICY.idleTimeoutMs);
+      const absoluteCutoff = new Date(
+        now.getTime() - SESSION_POLICY.absoluteTimeoutMs,
+      );
+
+      const session = await prisma.session.findFirst({
+        where: {
+          id: claims.sid,
+          userId: claims.sub,
+          expiresAt: { gt: new Date() },
+          lastActivityAt: { gt: idleCutoff },
+          createdAt: { gt: absoluteCutoff },
+        },
+        select: {
+          id: true,
+          createdAt: true,
+          user: {
+            select: {
+              id: true,
+              role: true,
+              status: true,
+              isDeleted: true,
+            },
+          },
+        },
+      });
+
+      if (!session) {
+        throw new AppError(
+          status.UNAUTHORIZED,
+          "Session is nnvalid or expired. Please sign-in again",
+        );
+      }
+
+      const user = session.user;
+      if (
+        user.isDeleted ||
+        user.status === UserStatus.BLOCKED ||
+        user.status === UserStatus.DELETED
       ) {
         throw new AppError(
-          status.UNAUTHORIZED,
-          "Unauthorized access! User is not active.",
+          status.FORBIDDEN,
+          "This account cannot access the application.",
         );
       }
-      if (!roles.includes(isUserExists.role)) {
+
+      if (roles.length > 0 && !roles.includes(user.role)) {
         throw new AppError(
           status.FORBIDDEN,
-          "Forbidden access! You do not have permission to access this resource.",
+          "You do not have permission to access this resource.",
         );
       }
+
+      const absoluteExpiresAt = new Date(
+        session.createdAt.getTime() + SESSION_POLICY.absoluteTimeoutMs,
+      );
+
+      const renewedExpiresAt = new Date(
+        Math.min(
+          now.getTime() + SESSION_POLICY.idleTimeoutMs,
+          absoluteExpiresAt.getTime(),
+        ),
+      );
+
+      const activityUpdate = await prisma.session.updateMany({
+        where: {
+          id: session.id,
+          expiresAt: { gt: now },
+          lastActivityAt: { gt: idleCutoff },
+          createdAt: { gt: absoluteCutoff },
+        },
+        data: { lastActivityAt: now, expiresAt: renewedExpiresAt },
+      });
+
+      if (activityUpdate.count !== 1) {
+        throw new AppError(
+          status.UNAUTHORIZED,
+          "Session expired. Please sign in again.",
+        );
+      }
+
+      req.user = {
+        sub: user.id,
+        role: user.role,
+      };
 
       next();
     } catch (error) {

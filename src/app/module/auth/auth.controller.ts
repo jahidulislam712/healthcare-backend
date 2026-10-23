@@ -20,6 +20,7 @@ const registerPatient = catchAsync(async (req: Request, res: Response) => {
 });
 
 const loginUser = catchAsync(async (req: Request, res: Response) => {
+
   const result = await authService.loginUser(req.body);
   const { token, accessToken, refreshToken, ...rest } = result;
 
@@ -32,9 +33,9 @@ const loginUser = catchAsync(async (req: Request, res: Response) => {
     message: "User logged in Successfully",
     success: true,
     data: {
-      token,
-      accessToken,
-      refreshToken,
+      // token,
+      // accessToken,
+      // refreshToken,
       ...rest,
     },
   });
@@ -74,7 +75,11 @@ const getNewToken = catchAsync(async (req: Request, res: Response) => {
     statusCode: status.CREATED,
     message: "New access token generated successfully",
     success: true,
-    data: { sessionToken, accessToken, refreshToken: newRefreshToken },
+    // data: {
+    //   sessionToken,
+    //   accessToken,
+    //   refreshToken: newRefreshToken
+    // },
   });
 });
 
@@ -98,18 +103,19 @@ const changePassword = catchAsync(async (req: Request, res: Response) => {
  ********************************/
 const logoutUser = catchAsync(async (req: Request, res: Response) => {
   const sessionToken = req.cookies["better-auth.session_token"];
-  const result = await authService.logoutUser(sessionToken);
+  await authService.logoutUser(sessionToken);
+
+  tokenUtils.clearAuthCookies(res)
 
   sendResponse(res, {
     statusCode: status.OK,
-    message: "Logged-out successfully",
-    success: true,
-    data: result,
+    message: "Logged out successfully",
+    success: true
   });
 });
 
 /*********************************
- * Logout user
+ * verifyEmailOtp
  ********************************/
 const verifyEmailOtp = catchAsync(async (req: Request, res: Response) => {
   const { email, otp } = req.body;

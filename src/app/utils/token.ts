@@ -1,63 +1,54 @@
 import { Response } from "express";
 import { envVars } from "../config/env";
-import { IRequestUser } from "../interfaces/requestUser.interface";
 import { cookieUtils } from "./cookie";
-import { jwtUtils } from "./jwt";
+import { SESSION_POLICY } from "../config/sessionPolicy";
 
-const getAccessToken = (payload: IRequestUser) => {
-  const accessToken = jwtUtils.createToken(
-    payload,
-    envVars.JWT_ACCESS_SECRET,
-    envVars.JWT_ACCESS_EXPIRES,
-  );
-
-  return accessToken;
-};
-
-const getRefreshToken = (payload: IRequestUser) => {
-  const refreshToken = jwtUtils.createToken(
-    payload,
-    envVars.JWT_REFRESH_SECRET,
-    envVars.JWT_REFRESH_EXPIRES,
-  );
-
-  return refreshToken
+const commonCookieOptions = {
+  httpOnly: true,
+  secure: envVars.NODE_ENV === "production",
+  sameSite: "lax" as const,
+  path: "/",
 };
 
 const setAccessTokenCookie = (res: Response, token: string) => {
-  cookieUtils.setCookie(res, 'accessToken', token, {
-    httpOnly: true,
-    secure: false,
-    sameSite: "none",
-    path: "/",
-    maxAge: 60 * 60 * 1000 // 1 hour
-  })
-}
+  cookieUtils.setCookie(res, "accessToken", token, {
+    ...commonCookieOptions,
+    maxAge: SESSION_POLICY.accessTokenCookieMaxAgeMs,
+  });
+};
 
 const setRefreshTokenCookie = (res: Response, token: string) => {
-  cookieUtils.setCookie(res, 'refreshToken', token, {
-    httpOnly: true,
-    secure: false,
-    sameSite: "none",
-    path: "/",
-    maxAge: 7 * 24 * 60 * 60 * 1000 // 7 days
-  })
-}
+  cookieUtils.setCookie(res, "refreshToken", token, {
+    ...commonCookieOptions,
+    maxAge: SESSION_POLICY.refreshTokenCookieMaxAgeMs,
+  });
+};
 
 const setBetterAuthSessionCookie = (res: Response, token: string) => {
-  cookieUtils.setCookie(res, 'better-auth.session_token', token, {
-    httpOnly: true,
-    secure: false,
-    sameSite: "none",
-    path: "/",
-    maxAge: 60 * 60 * 1000 // 1 hour
-  })
-}
+  cookieUtils.setCookie(res, "better-auth.session_token", token, {
+    ...commonCookieOptions,
+    maxAge: SESSION_POLICY.refreshTokenCookieMaxAgeMs,
+  });
+};
+
+const clearAuthCookies = (res: Response) => {
+  for (const name of [
+    "accessToken",
+    "refreshToken",
+    "better-auth.session_token",
+  ]) {
+    cookieUtils.clearCookie(res, name, {
+      httpOnly: true,
+      secure: envVars.NODE_ENV === "production",
+      sameSite: "lax",
+      path: "/",
+    });
+  }
+};
 
 export const tokenUtils = {
-  getAccessToken,
-  getRefreshToken,
   setAccessTokenCookie,
   setRefreshTokenCookie,
-  setBetterAuthSessionCookie
+  setBetterAuthSessionCookie,
+  clearAuthCookies
 };

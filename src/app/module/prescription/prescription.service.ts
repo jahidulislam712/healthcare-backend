@@ -26,7 +26,7 @@ const getAllPrescriptions = async (
     ownerFilter = { doctor: { userId: user.sub } };
   } else if (user.role === Role.PATIENT) {
     ownerFilter = { patient: { userId: user.sub } };
-  } else if (user.role !== Role.ADMIN && user.role !== Role.SUPER_AMDIN) {
+  } else if (user.role !== Role.ADMIN && user.role !== Role.SUPER_ADMIN) {
     throw new AppError(status.FORBIDDEN, "You cannot view prescriptions");
   }
 

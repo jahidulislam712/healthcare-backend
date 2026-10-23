@@ -5,6 +5,7 @@ import { Role, UserStatus } from "../../generated/prisma/enums";
 import { envVars } from "../config/env";
 import { bearer, emailOTP } from "better-auth/plugins";
 import { sendEmail } from "../services/email/sendEmail";
+import { SESSION_POLICY } from "../config/sessionPolicy";
 
 export const auth = betterAuth({
   baseURL: envVars.BETTER_AUTH_URL,
@@ -25,8 +26,8 @@ export const auth = betterAuth({
   socialProviders: {
     google: {
       clientId: envVars.GOOGLE_CLIENT_ID,
-      clientSecret: envVars.GOOGLE_CLIENT_SECRET
-    }
+      clientSecret: envVars.GOOGLE_CLIENT_SECRET,
+    },
   },
   user: {
     additionalFields: {
@@ -58,11 +59,10 @@ export const auth = betterAuth({
     },
   },
   session: {
-    expiresIn: 60 * 60 * 24, // 1 day in seconds
-    updateAge: 60 * 60 * 24, // 1 day in seconds
+    expiresIn: SESSION_POLICY.refreshTokenExpiresInSeconds,
+    disableSessionRefresh: true,
     cookieCache: {
-      enabled: true,
-      maxAge: 60 * 60 * 24, // 1 day in seconds
+      enabled: false,
     },
   },
   trustedOrigins: [
@@ -104,7 +104,7 @@ export const auth = betterAuth({
               email,
             },
           });
-          
+
           if (user && !user.emailVerified) {
             await sendEmail({
               to: email,
@@ -118,13 +118,13 @@ export const auth = betterAuth({
               },
             });
           }
-        }else if (type === "forget-password"){
+        } else if (type === "forget-password") {
           const user = await prisma.user.findUnique({
             where: {
               email,
             },
           });
-          
+
           if (user) {
             await sendEmail({
               to: email,

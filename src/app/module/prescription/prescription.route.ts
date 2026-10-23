@@ -17,7 +17,7 @@ router.get(
 );
 router.get(
   "/",
-  checkAuth(Role.ADMIN, Role.SUPER_AMDIN, Role.DOCTOR, Role.PATIENT),
+  checkAuth(Role.ADMIN, Role.SUPER_ADMIN, Role.DOCTOR, Role.PATIENT),
   prescriptionController.getAllPrescriptions,
 );
 router.post(

@@ -1,5 +1,5 @@
 enum Role{
-  SUPER_AMDIN
+  SUPER_ADMIN
   ADMIN
   DOCTOR
   PATIENT

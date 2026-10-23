@@ -7,11 +7,11 @@ import {
   ILoginUserPayload,
   IRegiterPatientPayload,
 } from "./auth.interface";
-import { UserStatus } from "../../../generated/prisma/enums";
-import { tokenUtils } from "../../utils/token";
-import { jwtUtils } from "../../utils/jwt";
+import { Role, UserStatus } from "../../../generated/prisma/enums";
+import { AppTokenClaims, jwtUtils } from "../../utils/jwt";
+import { randomUUID } from "node:crypto";
+import { SESSION_POLICY } from "../../config/sessionPolicy";
 import { envVars } from "../../config/env";
-import { IRequestUser } from "../../interfaces/requestUser.interface";
 
 /**
  *
@@ -112,14 +112,56 @@ const loginUser = async (payload: ILoginUserPayload) => {
     );
   }
 
-  const accessToken = tokenUtils.getAccessToken({
-    sub: user.id,
-    role: user.role,
+  const session = await prisma.session.findUnique({
+    where: {
+      token: data.token,
+      userId: data.user.id,
+      expiresAt: { gt: new Date() },
+    },
   });
-  const refreshToken = tokenUtils.getRefreshToken({
-    sub: user.id,
-    role: user.role,
+
+  if (!session) {
+    throw new AppError(status.UNAUTHORIZED, "Login session was not created.");
+  }
+
+  const refreshTokenId = randomUUID();
+
+  await prisma.session.update({
+    where: { id: session.id },
+    data: { refreshTokenId, lastActivityAt: new Date() },
   });
+
+  const accessToken = jwtUtils.signToken(
+    {
+      sub: user.id,
+      role: user.role as Role,
+      sid: session.id,
+      purpose: "access",
+    },
+    envVars.JWT_ACCESS_SECRET,
+    SESSION_POLICY.accessTokenExpiresInSeconds,
+  );
+
+  const refreshToken = jwtUtils.signToken(
+    {
+      sub: user.id,
+      role: user.role as Role,
+      sid: session.id,
+      purpose: "refresh",
+      jti: refreshTokenId,
+    },
+    envVars.JWT_REFRESH_SECRET,
+    SESSION_POLICY.refreshTokenExpiresInSeconds,
+  );
+
+  // const accessToken = tokenUtils.getAccessToken({
+  //   sub: user.id,
+  //   role: user.role,
+  // });
+  // const refreshToken = tokenUtils.getRefreshToken({
+  //   sub: user.id,
+  //   role: user.role,
+  // });
 
   return {
     ...data,
@@ -152,53 +194,139 @@ const getMe = async (userId: string) => {
  * GET NEW TOKEN
  ********************************/
 const getNewToken = async (sessionToken: string, refreshToken: string) => {
-  const isSessionExists = await prisma.session.findFirst({
-    where: {
-      token: sessionToken,
-    },
-    include: {
-      user: true,
-    },
-  });
-
-  if (!isSessionExists) {
-    throw new AppError(status.UNAUTHORIZED, "Invalid session token");
+  if (!sessionToken || !refreshToken) {
+    throw new AppError(status.UNAUTHORIZED, "Refresh credentials are missing");
   }
 
-  const { token } = await prisma.session.update({
+  const verified = jwtUtils.verifyRefreshToken(refreshToken);
+
+  if (!verified.success || typeof verified.data === "string") {
+    throw new AppError(status.UNAUTHORIZED, "Invalid or expire refresh token");
+  }
+
+  const claims = verified.data as AppTokenClaims;
+
+  if (
+    claims.purpose !== "refresh" ||
+    typeof claims.sub !== "string" ||
+    typeof claims.sid !== "string" ||
+    typeof claims.jti !== "string"
+  ) {
+    throw new AppError(status.UNAUTHORIZED, "Invalid refresh token.");
+  }
+
+  const now = new Date();
+  const idleCutoff = new Date(now.getTime() - SESSION_POLICY.idleTimeoutMs);
+  const absoluteCutoff = new Date(
+    now.getTime() - SESSION_POLICY.absoluteTimeoutMs,
+  );
+  const session = await prisma.session.findFirst({
     where: {
+      id: claims.sid,
       token: sessionToken,
+      userId: claims.sub,
+      refreshTokenId: claims.jti,
+      expiresAt: { gt: new Date() },
+      lastActivityAt: { gt: idleCutoff },
+      createdAt: { gt: absoluteCutoff },
     },
-    data: {
-      token: sessionToken,
-      expiresAt: new Date(Date.now() + 24 * 60 * 60 * 1000), // 1 day in milliseconds
-      updatedAt: new Date(),
+    select: {
+      id: true,
+      token: true,
+      createdAt: true,
+      user: {
+        select: {
+          id: true,
+          role: true,
+          status: true,
+          isDeleted: true,
+        },
+      },
     },
   });
 
-  const verifiedRefreshToken = jwtUtils.verifyToken(
-    refreshToken,
-    envVars.JWT_REFRESH_SECRET,
+  if (!session) {
+    throw new AppError(
+      status.UNAUTHORIZED,
+      "Session or refresh token is invalid.",
+    );
+  }
+
+  const user = session.user;
+
+  if (
+    user.isDeleted ||
+    user.status === UserStatus.BLOCKED ||
+    user.status === UserStatus.DELETED
+  ) {
+    throw new AppError(
+      status.FORBIDDEN,
+      "This account cannot access the application.",
+    );
+  }
+
+  const nextRefreshTokenId = randomUUID();
+
+  const accessToken = jwtUtils.signToken(
+    {
+      purpose: "access",
+      role: user.role as Role,
+      sid: session.id,
+      sub: user.id,
+    },
+    envVars.JWT_ACCESS_SECRET,
+    SESSION_POLICY.accessTokenExpiresInSeconds,
   );
 
-  if (!verifiedRefreshToken.success) {
-    throw new AppError(status.UNAUTHORIZED, "Invalid refresh token");
+  const newRefreshToken = jwtUtils.signToken(
+    {
+      purpose: "refresh",
+      role: user.role as Role,
+      sid: session.id,
+      sub: user.id,
+      jti: nextRefreshTokenId,
+    },
+    envVars.JWT_REFRESH_SECRET,
+    SESSION_POLICY.refreshTokenExpiresInSeconds,
+  );
+
+  const absoluteExpiresAt = new Date(
+    session.createdAt.getTime() + SESSION_POLICY.absoluteTimeoutMs,
+  );
+  const renewedExpiresAt = new Date(
+    Math.min(
+      now.getTime() + SESSION_POLICY.idleTimeoutMs,
+      absoluteExpiresAt.getTime(),
+    ),
+  );
+
+  // atomic one-time rotation: concurrent reuse of the old refresh token loses.
+  const rotation = await prisma.session.updateMany({
+    where: {
+      id: session.id,
+      token: sessionToken,
+      refreshTokenId: claims.jti,
+      expiresAt: { gt: new Date() },
+      lastActivityAt: { gt: idleCutoff },
+      createdAt: { gt: absoluteCutoff },
+    },
+    data: {
+      refreshTokenId: nextRefreshTokenId,
+      lastActivityAt: now,
+      expiresAt: renewedExpiresAt,
+    },
+  });
+
+  if (rotation.count !== 1) {
+    throw new AppError(
+      status.UNAUTHORIZED,
+      "Refresh token has already been used or the session expired.",
+    );
   }
 
-  const data = verifiedRefreshToken.data as IRequestUser;
-
-  const newAccessToken = tokenUtils.getAccessToken({
-    sub: data.sub,
-    role: data.role,
-  });
-  const newRefreshToken = tokenUtils.getRefreshToken({
-    sub: data.sub,
-    role: data.role,
-  });
-
   return {
-    sessionToken: token,
-    accessToken: newAccessToken,
+    sessionToken: session.token,
+    accessToken,
     refreshToken: newRefreshToken,
   };
 };
@@ -248,13 +376,21 @@ const changePassword = async (
 /*********************************
  * Logout / Sign Out
  ********************************/
-const logoutUser = async (sessionToken: string) => {
-  const result = await auth.api.signOut({
-    headers: new Headers({
-      Authorization: `Bearer ${sessionToken}`,
-    }),
+const logoutUser = async (sessionToken?: string) => {
+  if (!sessionToken) return;
+
+  await prisma.session.deleteMany({
+    where: {
+      token: sessionToken,
+    },
   });
-  return result;
+
+  // const result = await auth.api.signOut({
+  //   headers: new Headers({
+  //     Authorization: `Bearer ${sessionToken}`,
+  //   }),
+  // });
+  // return result;
 };
 
 /*********************************
@@ -359,15 +495,27 @@ const googleLoginSuccess = async (session: Record<string, any>) => {
     });
   }
 
-  const accessToken = tokenUtils.getAccessToken({
-    sub: session.user.id,
-    role: session.user.role,
-  });
+  const accessToken = jwtUtils.signToken(
+    {
+      sub: session.userId,
+      role: session.user.role as Role,
+      sid: session.id,
+      purpose: "access",
+    },
+    envVars.JWT_ACCESS_SECRET,
+    SESSION_POLICY.accessTokenExpiresInSeconds,
+  );
 
-  const refreshToken = tokenUtils.getRefreshToken({
-    sub: session.user.id,
-    role: session.user.role,
-  });
+  const refreshToken = jwtUtils.signToken(
+    {
+      sub: session.userId,
+      role: session.user.role as Role,
+      sid: session.id,
+      purpose: "refresh",
+    },
+    envVars.JWT_REFRESH_SECRET,
+    SESSION_POLICY.refreshTokenExpiresInSeconds,
+  );
 
   return {
     accessToken,
