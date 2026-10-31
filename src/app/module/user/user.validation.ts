@@ -9,18 +9,19 @@ export const createDoctorZodSchema = z.object({
   doctor: z.object({
     name: z
       .string("Name is required and must be string")
-      .min(5, "Name must be at least 5 characters")
+      .min(3, "Name must be at least 5 characters")
       .max(30, "Name must be at most 30 characters"),
 
     email: z.email("Invalid email address"),
 
     contactNumber: z
-      .string("Contact number is required")
+      .string()
       .min(11, "Contact number must be at least 11 characters")
-      .max(14, "Contact number must be at most 15 characters"),
+      .max(14, "Contact number must be at most 15 characters")
+      .optional(),
 
     address: z
-      .string("Address is required")
+      .string()
       .min(10, "Address must be at least 10 characters")
       .max(100, "Address must be at most 100 characters")
       .optional(),

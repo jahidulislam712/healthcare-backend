@@ -11,6 +11,11 @@ router.post(
   specialtyController.createSpecialty,
 );
 router.get("/", specialtyController.getAllSpecialties);
+router.patch(
+  "/:id",
+  checkAuth(Role.ADMIN, Role.SUPER_ADMIN),
+  specialtyController.updateSpecialty,
+);
 router.delete(
   "/:id",
   checkAuth(Role.ADMIN, Role.SUPER_ADMIN),

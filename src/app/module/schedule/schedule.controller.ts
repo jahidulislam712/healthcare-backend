@@ -25,7 +25,8 @@ const getAllSchedule = catchAsync(async (req: Request, res: Response) => {
     success: true,
     message: "All schedules retrived successfully",
     statusCode: status.OK,
-    data: result,
+    data: result.data,
+    meta: result.meta,
   });
 });
 
@@ -34,10 +35,7 @@ const getAllSchedule = catchAsync(async (req: Request, res: Response) => {
  ********************************/
 const updateSchedule = catchAsync(async (req: Request, res: Response) => {
   const { id } = req.params;
-  const result = await scheduleService.updateSchedule(
-    id as string,
-    req.body,
-  );
+  const result = await scheduleService.updateSchedule(id as string, req.body);
 
   sendResponse(res, {
     success: true,

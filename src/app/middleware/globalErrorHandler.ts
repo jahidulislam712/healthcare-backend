@@ -62,13 +62,35 @@ export const globalErrorHandler = (
         break;
       case "P2002": {
         statusCode = status.CONFLICT;
-        message = "A record with this value already exists.";
         const target = err.meta?.target;
-        const path = Array.isArray(target)
+        let path = Array.isArray(target)
           ? target.join(".")
           : typeof target === "string"
             ? target
             : "";
+        // Fallback for Prisma driver adapters
+        if (!path) {
+          const driverError = err.meta?.driverAdapterError as
+            | {
+                cause?: {
+                  originalMessage?: string;
+                };
+              }
+            | undefined;
+
+          const originalMessage = driverError?.cause?.originalMessage ?? "";
+
+          const match = originalMessage.match(/unique constraint "([^"]+)"/i);
+
+          const constraint = match?.[1];
+
+          if (constraint) {
+            path = constraint.replace(/_key$/, "").replace(/^.*_/, "");
+          }
+        }
+        message = path
+          ? `${path} already exists.`
+          : "A record with this value already exists.";
         errorSources = [{ path, message }];
         break;
       }
@@ -106,8 +128,7 @@ export const globalErrorHandler = (
       statusCode >= status.INTERNAL_SERVER_ERROR
         ? internalServerErrorMessage
         : err.message;
-    errorCode =
-      typeof err.body?.code === "string" ? err.body.code : undefined;
+    errorCode = typeof err.body?.code === "string" ? err.body.code : undefined;
     errorSources = [{ path: "", message }];
   } else if (err instanceof AppError) {
     statusCode = err.statusCode;

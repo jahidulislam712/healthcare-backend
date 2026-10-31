@@ -17,13 +17,14 @@ model Specialty {
   @@map("specialties")
 }
 
-model DoctorSpecialty{
-  id String @id @default(uuid(7))
-  doctorId String @unique
-  specialtyId String @unique
+model DoctorSpecialty {
+  id          String @id @default(uuid(7))
+  doctorId    String
+  specialtyId String
 
-  doctor Doctor @relation(fields: [doctorId], references: [id], onDelete: Cascade, onUpdate: Cascade)
+  doctor    Doctor    @relation(fields: [doctorId], references: [id], onDelete: Cascade, onUpdate: Cascade)
   specialty Specialty @relation(fields: [specialtyId], references: [id], onDelete: Cascade, onUpdate: Cascade)
 
+  @@unique([doctorId, specialtyId])
   @@map("doctor_specialties")
 }
