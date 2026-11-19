@@ -63,7 +63,7 @@ const updateDoctor = async (id: string, payload: IUpdateDoctorPayload) => {
     throw new AppError(status.NOT_FOUND, "Doctor not found!");
   }
 
-  if (doctor.isDeleted) {
+  if (doctor.isDeleted) { 
     throw new AppError(status.BAD_REQUEST, "Doctor doctor is deleted");
   }
 

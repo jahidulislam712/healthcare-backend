@@ -197,8 +197,6 @@ export class QueryBuilder<T, TInclude = Record<string, unknown>> {
       this.model.findMany(this.query),
     ]);
 
-    console.log(this.query)
-
     const totalPages = Math.ceil(total / this.limit);
 
     return {
