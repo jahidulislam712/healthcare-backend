@@ -1,0 +1,11 @@
+model RagChunk {
+  id         String   @id @default(uuid(7))
+  source     String   @db.VarChar(200)
+  content    String   @db.Text
+  embedding  Float[]
+  chunkIndex Int
+  createdAt  DateTime @default(now())
+
+  @@unique([source, chunkIndex])
+  @@map("rag_chunks")
+}

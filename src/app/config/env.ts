@@ -60,6 +60,7 @@ const envSchema = z.object({
   REDIS_PASS: requiredString("REDIS_PASS"),
   REDIS_HOST: requiredString("REDIS_HOST"),
   REDIS_PORT: requiredString("REDIS_PORT"),
+  GEMINI_API_KEY: requiredString("GEMINI_API_KEY"),
 });
 
 /**********************************
@@ -120,6 +121,8 @@ const parseEnv = () => {
     REDIS_PASS: env.REDIS_PASS,
     REDIS_HOST: env.REDIS_HOST,
     REDIS_PORT: env.REDIS_PORT,
+
+    GEMINI_API_KEY: env.GEMINI_API_KEY,
     
   });
 };
